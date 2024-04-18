@@ -184,7 +184,7 @@ class MaskDecoderHQ(nn.Module):
         src = src.transpose(1, 2).view(b, c, h, w)
 
         upscaled_embedding_sam = self.output_upscaling(src)
-        upscaled_embedding_ours = self.embedding_maskfeature(upscaled_embedding_sam) + hq_features.repeat(b,1,1,1)
+        upscaled_embedding_ours = self.embedding_maskfeature(upscaled_embedding_sam) + hq_features
         
         hyper_in_list: List[torch.Tensor] = []
         for i in range(self.num_mask_tokens):
