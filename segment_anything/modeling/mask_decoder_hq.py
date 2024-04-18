@@ -161,7 +161,7 @@ class MaskDecoderHQ(nn.Module):
         image_pe: torch.Tensor,
         sparse_prompt_embeddings: torch.Tensor,
         dense_prompt_embeddings: torch.Tensor,
-        hq_feature: torch.Tensor,
+        hq_features: torch.Tensor,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """Predicts masks. See 'forward' for more details."""
 
@@ -184,7 +184,7 @@ class MaskDecoderHQ(nn.Module):
         src = src.transpose(1, 2).view(b, c, h, w)
 
         upscaled_embedding_sam = self.output_upscaling(src)
-        upscaled_embedding_ours = self.embedding_maskfeature(upscaled_embedding_sam) + hq_feature.repeat(b,1,1,1)
+        upscaled_embedding_ours = self.embedding_maskfeature(upscaled_embedding_sam) + hq_features.repeat(b,1,1,1)
         
         hyper_in_list: List[torch.Tensor] = []
         for i in range(self.num_mask_tokens):
