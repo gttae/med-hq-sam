@@ -11,7 +11,7 @@ from torch.nn import functional as F
 from typing import Any, Dict, List, Tuple
 
 from .image_encoder import ImageEncoderViT
-from .mask_decoder import MaskDecoder
+from .mask_decoder_hq import MaskDecoderHQ
 from .prompt_encoder import PromptEncoder
 
 
@@ -23,7 +23,7 @@ class Sam(nn.Module):
         self,
         image_encoder: ImageEncoderViT,
         prompt_encoder: PromptEncoder,
-        mask_decoder: MaskDecoder,
+        mask_decoder: MaskDecoderHQ,
         pixel_mean: List[float] = [123.675, 116.28, 103.53],
         pixel_std: List[float] = [58.395, 57.12, 57.375],
     ) -> None:
@@ -85,8 +85,8 @@ class Sam(nn.Module):
           (list(dict)): A list over input images, where each element is
             as dictionary with the following keys.
               'masks': (torch.Tensor) Batched binary mask predictions,
-                with shape BxCxHxW, where B is the number of input prompts,
-                C is determined by multimask_output, and (H, W) is the
+                with shape BxCxHxW, where B is the number of input promts,
+                C is determiend by multimask_output, and (H, W) is the
                 original size of the image.
               'iou_predictions': (torch.Tensor) The model's predictions
                 of mask quality, in shape BxC.
@@ -95,6 +95,7 @@ class Sam(nn.Module):
                 to subsequent iterations of prediction.
         """
         input_images = torch.stack([self.preprocess(x["image"]) for x in batched_input], dim=0)
+        
         image_embeddings, interm_embeddings = self.image_encoder(input_images)
         interm_embeddings = interm_embeddings[0] # early layer
 
@@ -116,22 +117,29 @@ class Sam(nn.Module):
                 dense_prompt_embeddings=dense_embeddings,
                 multimask_output=multimask_output,
                 hq_token_only=hq_token_only,
-                interm_embeddings=curr_interm.unsqueeze(0).unsqueeze(0),
+                interm_embeddings=curr_interm.unsqueeze(0),
             )
+            
             masks = self.postprocess_masks(
                 low_res_masks,
                 input_size=image_record["image"].shape[-2:],
                 original_size=image_record["original_size"],
             )
             masks = masks > self.mask_threshold
+
             outputs.append(
                 {
                     "masks": masks,
                     "iou_predictions": iou_predictions,
                     "low_res_logits": low_res_masks,
+                    "encoder_embedding": curr_embedding.unsqueeze(0),
+                    "image_pe": self.prompt_encoder.get_dense_pe(),
+                    "sparse_embeddings":sparse_embeddings,
+                    "dense_embeddings":dense_embeddings,
                 }
             )
-        return outputs
+
+        return outputs, interm_embeddings
 
     def postprocess_masks(
         self,
@@ -167,7 +175,10 @@ class Sam(nn.Module):
     def preprocess(self, x: torch.Tensor) -> torch.Tensor:
         """Normalize pixel values and pad to a square input."""
         # Normalize colors
-        x = (x - self.pixel_mean) / self.pixel_std
+        x = x.to("cuda")  # 먼저 입력 데이터를 올바른 장치로 이동
+        self.pixel_mean = self.pixel_mean.to("cuda")  # pixel_mean을 같은 장치로 이동
+        self.pixel_std = self.pixel_std.to("cuda")  # pixel_std를 같은 장치로 이동
+        x = (x - self.pixel_mean) / self.pixel_std  # 이제 연산 수행
 
         # Pad
         h, w = x.shape[-2:]
