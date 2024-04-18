@@ -182,9 +182,10 @@ class MaskDecoderHQ(nn.Module):
         mask_tokens_out = hs[:, 1 : (1 + self.num_mask_tokens), :]
 
         # Upscale mask embeddings and predict masks using the mask tokens
-        src = src.transpose(1, 2).view(b, c, h, w)
+        #src = src.transpose(1, 2).view(b, c, h, w)
         upscaled_embedding_sam = self.output_upscaling(src)
-        upscaled_embedding_hq = self.embedding_maskfeature(upscaled_embedding_sam) + hq_features.repeat(b,1,1,1)
+        #upscaled_embedding_hq = self.embedding_maskfeature(upscaled_embedding_sam)
+
 
         hyper_in_list: List[torch.Tensor] = []
         for i in range(self.num_mask_tokens):
@@ -197,7 +198,7 @@ class MaskDecoderHQ(nn.Module):
         b, c, h, w = upscaled_embedding_sam.shape
 
         masks_sam = (hyper_in[:,:self.num_mask_tokens-1] @ upscaled_embedding_sam.view(b, c, h * w)).view(b, -1, h, w)
-        masks_sam_hq = (hyper_in[:,self.num_mask_tokens-1:] @ upscaled_embedding_hq.view(b, c, h * w)).view(b, -1, h, w)
+        masks_sam_hq = (hyper_in[:,self.num_mask_tokens-1:] @ upscaled_embedding_sam.view(b, c, h * w)).view(b, -1, h, w)
         masks = torch.cat([masks_sam,masks_sam_hq],dim=1)
 
         # Generate mask quality predictions
