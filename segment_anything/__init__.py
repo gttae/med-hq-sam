@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Copyright (c) Meta Platforms, Inc. and affiliates.
 # All rights reserved.
 
@@ -12,5 +11,6 @@ from .build_sam import (
     build_sam_vit_b,
     sam_model_registry,
 )
+from .build_sam_baseline import sam_model_registry_baseline
 from .predictor import SamPredictor
 from .automatic_mask_generator import SamAutomaticMaskGenerator
